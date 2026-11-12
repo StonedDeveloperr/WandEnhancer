@@ -24,8 +24,18 @@ jobs:
       - name: Setup MSBuild
         uses: microsoft/setup-msbuild@v2
 
-      - name: Run build script
-        run: .\build.cmd
+      - name: Build Web Panel
+        run: |
+          pnpm --dir web-panel install
+          pnpm --dir web-panel build
+        shell: pwsh
+
+      - name: Restore NuGet Packages
+        run: msbuild Wand-Enhancer.sln /t:Restore
+        shell: pwsh
+
+      - name: Build Release Executable
+        run: msbuild Wand-Enhancer.sln /p:Configuration=Release
         shell: pwsh
 
       - name: Upload Artifact
