@@ -2,44 +2,53 @@ name: Build executable
 
 on:
   workflow_dispatch:
+    inputs:
+      enable_update_notifications:
+        description: Include GitHub release checks when Wand starts
+        type: boolean
+        required: false
+        default: false
+  pull_request:
+  push:
+    branches: [master, 'feature/rc_*']
 
 jobs:
   build:
     runs-on: windows-latest
+    permissions:
+      contents: read
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: pnpm/action-setup@v5
+        with:
+          version: 10.17.0
+
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
+          cache: pnpm
+          cache-dependency-path: web-panel/pnpm-lock.yaml
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@v2
-        with:
-          version: 10
-
-      - name: Setup MSBuild
-        uses: microsoft/setup-msbuild@v2
-
-      - name: Build Web Panel
+      - name: Build unsigned executable
+        shell: pwsh
         run: |
-          pnpm --dir web-panel install
-          pnpm --dir web-panel build
-        shell: pwsh
+          if ('${{ inputs.enable_update_notifications }}' -eq 'true') {
+            ./build.ps1 -Configuration Release -EnableUpdateNotifications
+          } else {
+            ./build.ps1 -Configuration Release
+          }
 
-      - name: Restore NuGet Packages
-        run: nuget restore Wand-Enhancer.sln
-        shell: pwsh
-
-      - name: Build Release Executable
-        run: msbuild Wand-Enhancer.sln /p:Configuration=Release
-        shell: pwsh
-
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v4
+      - name: Upload unsigned executable
+        uses: actions/upload-artifact@v6
         with:
-          name: WandEnhancer-exe
+          name: WandEnhancer-unsigned
           path: WandEnhancer/bin/Release/WandEnhancer.exe
+          if-no-files-found: error
+
+      # The published artifact is always the offline build; this only proves the
+      # opt-in variant still compiles and passes its checks on every push.
+      - name: Verify opt-in update notifications build
+        shell: pwsh
+        run: ./build.ps1 -Configuration Release -EnableUpdateNotifications
