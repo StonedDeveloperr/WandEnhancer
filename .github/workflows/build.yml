@@ -31,7 +31,7 @@ jobs:
         shell: pwsh
 
       - name: Restore NuGet Packages
-        run: msbuild Wand-Enhancer.sln /t:Restore
+        run: nuget restore Wand-Enhancer.sln
         shell: pwsh
 
       - name: Build Release Executable
